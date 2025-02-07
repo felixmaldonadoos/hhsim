@@ -1,6 +1,8 @@
 # app.py
 import sys
 import matplotlib
+from helpers.timer import Timer
+
 matplotlib.use("Qt5Agg")
 import matplotlib.pyplot as plt
 
@@ -8,6 +10,8 @@ from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget,
     QPushButton, QFormLayout, QDoubleSpinBox, QSlider, QSizePolicy
 )
+import qdarktheme
+
 from PyQt5.QtCore import QTimer, Qt
 from PyQt5.QtGui import QGuiApplication
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -15,10 +19,12 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from model import Model  # Import the Model class from model.py
 
 class App(QMainWindow):
-    def __init__(self):
+    def __init__(self, dark_mode=True):
+        if dark_mode:
+            qdarktheme.setup_theme()
         super().__init__()
         self.setWindowTitle("Real-Time Hodgkin–Huxley Simulation")
-        self.setGeometry(100, 100, 800, 600)
+        self.setGeometry(100, 100, 1280, 1080)
 
         # --- Main Layout ---
         central_widget = QWidget(self)
@@ -29,6 +35,10 @@ class App(QMainWindow):
         controls_widget = QWidget()
         controls_widget.setStyleSheet("QLabel { font-size: 16px; font-weight: bold; }")
         controls_layout = QHBoxLayout(controls_widget)
+        
+        self.slow_mode = False
+        self.slow_mode_multiplier = 5
+
 
         # Parameter Controls
         form_layout = QFormLayout()
@@ -60,29 +70,18 @@ class App(QMainWindow):
 
         # Buttons Layout
         buttons_layout = QVBoxLayout()
-        self.inject_button = QPushButton("Inject Current", self)
-        self.inject_button.clicked.connect(self.inject_current)
-        self.inject_button.setStyleSheet("font-size: 16px; font-weight: bold;")
-        self.inject_button.setMinimumHeight(40)
-        buttons_layout.addWidget(self.inject_button)
+        
+        # self.slow_mode_button = self._create_button_( text="Slow Mode: OFF", parent=self, enabled=True, callback=self.toggle_slow_mode, layout=buttons_layout)
 
-        self.inject_and_pause_button = QPushButton("Inject and Pause", self)
-        self.inject_and_pause_button.clicked.connect(self.inject_and_pause)
-        self.inject_and_pause_button.setStyleSheet("font-size: 16px; font-weight: bold;")
-        self.inject_and_pause_button.setMinimumHeight(40)
-        buttons_layout.addWidget(self.inject_and_pause_button)
+        self.inject_button = self._create_button_(text="Inject Current", parent=self, enabled=True, callback=self.inject_current, layout=buttons_layout)
 
-        self.pause_button = QPushButton("Pause", self)
-        self.pause_button.clicked.connect(self.toggle_pause)
-        self.pause_button.setStyleSheet("font-size: 16px; font-weight: bold;")
-        self.pause_button.setMinimumHeight(40)
-        buttons_layout.addWidget(self.pause_button)
+        self.inject_and_pause_button = self._create_button_(text="Inject and Pause", parent=self, enabled=True, callback=self.inject_and_pause, layout=buttons_layout)
 
-        self.reset_button = QPushButton("Reset view", self)
-        self.reset_button.clicked.connect(self.reset_view)
-        self.reset_button.setStyleSheet("font-size: 16px; font-weight: bold;")
-        self.reset_button.setMinimumHeight(40)
-        buttons_layout.addWidget(self.reset_button)
+        self.pause_button = self._create_button_(text="Pause", parent=self, enabled=True, callback=self.toggle_pause, layout=buttons_layout)
+        
+        self.reset_button = self._create_button_(text="Reset view", parent=self, enabled=True, callback=self.reset_view, layout=buttons_layout)
+        
+        self.dbg_button = self._create_button_(text="Debug", parent=self, enabled=True, callback=self._debug_button_callback_, layout=buttons_layout)
 
         buttons_layout.addStretch(1)
         controls_layout.addLayout(buttons_layout)
@@ -104,7 +103,7 @@ class App(QMainWindow):
         # --- Simulation State ---
         self.model = Model()  # Create an instance of the Model class
         self.sim_time = 0.0
-        self.dt = 0.01
+        self.dt = 0.025 # ~75-85 fps with 0.025 ms | 0.05ms ~ 160-170 fps | 0.01 ~ 30 fps
         self.times = []
         self.Vs = []
 
@@ -128,11 +127,40 @@ class App(QMainWindow):
         self.timer.timeout.connect(self.update_simulation)
         self.timer.start()
 
-        # Flag used for the "Inject and Pause" functionality.
-        # Here, we pause automatically when the AP reaches a steady state
-        # (i.e. when the voltage variation over the last 20 ms is less than 1 mV).
         self.pause_when_steady = False
-
+        self.buttons = None
+        
+    def _debug_button_callback_(self):
+        print("Debug button clicked")
+        
+    def _create_button_(self, 
+                         text="DefaultBtn", 
+                         callback=None, 
+                         style="font-size: 16px; font-weight: bold;", 
+                         enabled=True, 
+                         parent=None,
+                         min_height=40,
+                         layout=None)->QPushButton:
+        if parent is None:
+            parent = self
+        btn = QPushButton(text, parent)
+        btn.setEnabled(enabled)
+        if style:
+            btn.setStyleSheet(style)
+            
+        if callback is None: 
+            raise ValueError("callback must be a function")
+        btn.clicked.connect(callback)
+        btn.setMinimumHeight(min_height)
+        if layout is not None:
+            layout.addWidget(btn)
+        return btn
+        
+    def  _init_buttons_(self, bdict:dict=None):
+        if not isinstance(bdict, dict):
+            raise ValueError("button_dic must be a dictionary")
+        for key, value in bdict.items():
+            return
     def update_window_size(self, value):
         self.window_size_ms = value
         self.auto_zoom = True
@@ -237,6 +265,14 @@ class App(QMainWindow):
         self.inject_current()
         self.pause_when_steady = True
 
+    def toggle_slow_mode(self):
+        """Toggle the slow mode flag and update button text."""
+        self.slow_mode = not self.slow_mode
+        if self.slow_mode:
+            self.slow_mode_button.setText("Slow Mode: ON")
+        else:
+            self.slow_mode_button.setText("Slow Mode: OFF")
+    
     def toggle_pause(self):
         if self.timer.isActive():
             self.timer.stop()
@@ -250,13 +286,15 @@ class App(QMainWindow):
             self.inject_and_pause_button.setEnabled(True)
             self.pause_when_steady = False
 
+    
     def update_simulation(self):
+        timer_update = Timer(text="Outer update")
         steps = int(self.timer_interval / self.dt)
         for _ in range(steps):
             I_ext = self.external_current(self.sim_time)
             self.model.step(self.dt, I_ext)
             self.sim_time += self.dt
-            self.simulation_counter += 1
+            self.simulation_counter += 1  
             if self.simulation_counter % self.plot_sampling == 0:
                 self.times.append(self.sim_time)
                 self.Vs.append(self.model.V)
@@ -274,17 +312,20 @@ class App(QMainWindow):
         self.canvas.draw_idle()
         self.last_plot_update_time = self.sim_time
 
-        # If the "Inject and Pause" flag is set, check for steady state.
-        # (20 ms corresponds to about 200 plotted points if plot_sampling is 10.)
-        if self.pause_when_steady and len(self.Vs) >= 200:
+        # If the "Inject and Pause" flag is set, check for steady state. after 20ms
+        if self.pause_when_steady and len(self.Vs) >= 20*100:
             recent_V = self.Vs[-200:]
             if max(recent_V) - min(recent_V) < 1.0:
                 self.toggle_pause()
                 self.pause_when_steady = False
-
+                
+        print(f'fps: {(1/timer_update.get_elapsed()):0.4}')
+                
 if __name__ == '__main__':
     # This block is not used when imported by main.py.
+    # qdarktheme.enable_hi_dpi()
     app = QApplication(sys.argv)
+    import qdarktheme
     window = App()
     window.show()
     sys.exit(app.exec_())
