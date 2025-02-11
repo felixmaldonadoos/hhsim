@@ -2,8 +2,5 @@
 
 Install the following (I used pip) 
 ```
-pyqt5
-pyqtdarktheme
-matplotlib
-numpy
+pip install pyqt5 pyqtdarktheme matplotlib numpy
 ```
