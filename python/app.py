@@ -2,7 +2,7 @@
 import sys
 import matplotlib
 from helpers.timer import Timer
-
+import time
 matplotlib.use("Qt5Agg")
 import matplotlib.pyplot as plt
 
@@ -26,9 +26,12 @@ class App(QMainWindow):
         self.model = Model()  # Create an instance of the Model class
         
         if dark_mode:
-            qdarktheme.setup_theme()
+            if hasattr(qdarktheme, 'setup_theme'):
+                qdarktheme.setup_theme()
+            else:
+                print("Dark mode not available (pip install pyqtdarktheme). [`qdarktheme` does not work on win11...]")
         super().__init__()
-        self.setWindowTitle("Real-Time Hodgkin–Huxley Simulation")
+        self.setWindowTitle("Hodgkin–Huxley Simulation")
         self.setGeometry(100, 100, 1280, 1080)
 
         # --- Main Layout ---
@@ -48,7 +51,7 @@ class App(QMainWindow):
         form_layout = QFormLayout()
         self.injectionAmplitudeSpinBox = self._create_spinbox_(text="Injection Amplitude (µA/cm²):", suffix='ms', layout=form_layout,  range=(-1000.0, 1000.0), default_value=10.0)
         self.injectionDurationSpinBox = self._create_spinbox_(text="Injection Duration (ms):",suffix='ms', layout=form_layout,  range=(0.0, 1000.0), default_value=1.0)
-        self.windowSlider = self._create_slider_(text="Plot Window (ms):",callback=self.update_window_size, range=(10, 50000), default_value=10000,layout=form_layout)
+        self.windowSlider = self._create_slider_(text="Plot Window (ms):",callback=self.update_window_size, range=(10, 25000), default_value=1000,layout=form_layout)
 
         controls_layout.addLayout(form_layout)
 
@@ -71,7 +74,6 @@ class App(QMainWindow):
         # buttons_layout.addStretch(1)
         controls_layout.addLayout(buttons_layout)
         main_layout.addWidget(controls_widget, 0)
-        
                 
         checkbox_widget = QWidget()
         
@@ -103,7 +105,7 @@ class App(QMainWindow):
 
         # --- Simulation State ---
         self.sim_time = 0.0
-        self.dt = 0.025 # ~75-85 fps with 0.025 ms | 0.05ms ~ 160-170 fps | 0.01 ~ 30 fps
+        self.dt = 0.01 # ~75-85 fps with 0.025 ms | 0.05ms ~ 160-170 fps | 0.01 ~ 30 fps
         self.times = []
         self.Vs = []
         self.Y = {'Vs':[], 'm':[], 'h':[], 'n':[]}
@@ -132,7 +134,7 @@ class App(QMainWindow):
         # init all lines to plot
         self.lines = {'Vs':line_Vs, 'm':line_m, 'h':line_h, 'n':line_n}
 
-        self.timer_interval = 20  # ms
+        self.timer_interval = 5  # ms
         self.timer = QTimer()
         self.timer.setInterval(self.timer_interval)
         self.timer.timeout.connect(self.update_simulation)
@@ -146,14 +148,11 @@ class App(QMainWindow):
         self.checkboxes = {}
         self.plot_keys = ["Vs", "m", "h", "n"]
         for key in self.plot_keys:
-            print(f'Initializing checkbox for {key}')
-
             self.checkboxes[key] = QCheckBox(f"Show {key}", self)
             self.checkboxes[key].setChecked(True)
             self.checkboxes[key].setStyleSheet("font-size: 16px;")  # Increase font size
             self.checkboxes[key].stateChanged.connect(lambda state, k=key: self.toggle_line_visibility(k, state))
             if layout:
-                print(f'Layout found for: {key}')
                 layout.addWidget(self.checkboxes[key])
         
     def update_model_parameter(self, param, value):
@@ -383,7 +382,6 @@ class App(QMainWindow):
             self.pause_when_steady = False
     
     def update_simulation(self):
-        timer_update = Timer(text="Outer update")
         steps = int(self.timer_interval / self.dt)
         for _ in range(steps):
             I_ext = self.external_current(self.sim_time)
@@ -425,9 +423,7 @@ class App(QMainWindow):
             if max(recent_V) - min(recent_V) < 1.0:
                 self.toggle_pause()
                 self.pause_when_steady = False
-                
-        # print(f'fps: {(1/timer_update.get_elapsed()):0.4}')
-                
+        
 if __name__ == '__main__':
     # This block is not used when imported by main.py.
     # qdarktheme.enable_hi_dpi()
