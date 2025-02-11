@@ -3,14 +3,25 @@ import numpy as np
 
 class Model:
     def __init__(self):
+        
+        self.neuron_params = {
+            "C_m": ("Membrane Capacitance (µF/cm²):", 0.1, 5.0, 1.0),
+            "g_Na": ("Sodium Conductance (mS/cm²):", 50.0, 200.0, 120.0),
+            "g_K": ("Potassium Conductance (mS/cm²):", 10.0, 100.0, 36.0),
+            "g_L": ("Leak Conductance (mS/cm²):", 0.1, 2.0, 0.3),
+            "E_Na": ("Sodium Reversal Potential (mV):", 40.0, 70.0, 50.0),
+            "E_K": ("Potassium Reversal Potential (mV):", -100.0, -50.0, -77.0),
+            "E_L": ("Leak Reversal Potential (mV):", -70.0, -30.0, -54.387)
+        }
+        
         # Hodgkin–Huxley parameters (classic values)
-        self.C_m  = 1.0      # membrane capacitance (µF/cm²)
-        self.g_Na = 120.0    # sodium conductance (mS/cm²)
-        self.g_K  = 36.0     # potassium conductance (mS/cm²)
-        self.g_L  = 0.3      # leak conductance (mS/cm²)
-        self.E_Na = 50.0     # sodium reversal potential (mV)
-        self.E_K  = -77.0    # potassium reversal potential (mV)
-        self.E_L  = -54.387  # leak reversal potential (mV)
+        self.C_m  = self.neuron_params['C_m'][3]
+        self.g_Na = self.neuron_params['g_Na'][3]
+        self.g_K  = self.neuron_params['g_K'][3]
+        self.g_L  = self.neuron_params['g_L'][3]
+        self.E_Na = self.neuron_params['E_Na'][3]
+        self.E_K  = self.neuron_params['E_K'][3]
+        self.E_L  = self.neuron_params['E_L'][3]
 
         # Initial conditions (resting state ~ -65 mV)
         self.V = -65.0

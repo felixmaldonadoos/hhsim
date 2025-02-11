@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget,
-    QPushButton, QFormLayout, QDoubleSpinBox, QSlider, QSizePolicy
+    QPushButton, QFormLayout, QDoubleSpinBox, QSlider, QSizePolicy, QCheckBox
 )
 import qdarktheme
 
@@ -20,6 +20,11 @@ from model import Model  # Import the Model class from model.py
 
 class App(QMainWindow):
     def __init__(self, dark_mode=True):
+        
+        # init model 
+        # todo: move this to somewhere cleaner - ugly af rn 
+        self.model = Model()  # Create an instance of the Model class
+        
         if dark_mode:
             qdarktheme.setup_theme()
         super().__init__()
@@ -37,75 +42,71 @@ class App(QMainWindow):
         controls_layout = QHBoxLayout(controls_widget)
         
         self.slow_mode = False
-        self.slow_mode_multiplier = 5
-
+        self.slow_mode_multiplier = 5        
 
         # Parameter Controls
         form_layout = QFormLayout()
-        self.injectionAmplitudeSpinBox = self._create_spinbox_(text="Injection Amplitude (µA/cm²):",
-                                                               suffix='ms',
-                                                               style='font-size: 16px;',
-                                                               layout=form_layout, 
-                                                               range=(-1000.0, 1000.0),
-                                                               decimals=2, 
-                                                               default_value=10.0)
+        self.injectionAmplitudeSpinBox = self._create_spinbox_(text="Injection Amplitude (µA/cm²):", suffix='ms', layout=form_layout,  range=(-1000.0, 1000.0), default_value=10.0)
+        self.injectionDurationSpinBox = self._create_spinbox_(text="Injection Duration (ms):",suffix='ms', layout=form_layout,  range=(0.0, 1000.0), default_value=1.0)
+        self.windowSlider = self._create_slider_(text="Plot Window (ms):",callback=self.update_window_size, range=(10, 50000), default_value=10000,layout=form_layout)
 
-        self.injectionDurationSpinBox = self._create_spinbox_(text="Injection Duration (ms):",
-                                                                suffix='ms',
-                                                                style='font-size: 16px;',
-                                                                layout=form_layout, 
-                                                                range=(0.0, 1000.0),
-                                                                decimals=2, 
-                                                                default_value=1.0)
-
-        self.windowSlider = self._create_slider_(text="Plot Window (ms):",
-                                                    callback=self.update_window_size,
-                                                    style='font-size: 16px;',
-                                                    range=(10, 50000),
-                                                    default_value=10000,
-                                                    tick_interval=1000,
-                                                    orientation=Qt.Horizontal,
-                                                    layout=form_layout)
         controls_layout.addLayout(form_layout)
 
         # Buttons Layout
         buttons_layout = QVBoxLayout()
         
         # self.slow_mode_button = self._create_button_( text="Slow Mode: OFF", parent=self, enabled=True, callback=self.toggle_slow_mode, layout=buttons_layout)
+        self.inject_button = self._create_button_(text="Inject Current", callback=self.inject_current, layout=buttons_layout)
+        self.inject_and_pause_button = self._create_button_(text="Inject and Pause", callback=self.inject_and_pause, layout=buttons_layout)
+        self.pause_button = self._create_button_(text="Pause", callback=self.toggle_pause, layout=buttons_layout)
+        self.reset_button = self._create_button_(text="Reset view", callback=self.reset_view, layout=buttons_layout)
+        self.reset_params_button = self._create_button_("Reset Parameters", callback=self.reset_model_params, layout=buttons_layout)
 
-        self.inject_button = self._create_button_(text="Inject Current", parent=self, enabled=True, callback=self.inject_current, layout=buttons_layout)
-
-        self.inject_and_pause_button = self._create_button_(text="Inject and Pause", parent=self, enabled=True, callback=self.inject_and_pause, layout=buttons_layout)
-
-        self.pause_button = self._create_button_(text="Pause", parent=self, enabled=True, callback=self.toggle_pause, layout=buttons_layout)
+        self.neuron_params = self.model.neuron_params
+        self.param_spinboxes = {}
+        for param, (label, min_val, max_val, default) in self.neuron_params.items():
+            self.param_spinboxes[param] = self._create_spinbox_(text=label, layout=form_layout,range= (min_val, max_val), default_value=default)
+            self.param_spinboxes[param].valueChanged.connect(lambda value, p=param: self.update_model_parameter(p, value))
         
-        self.reset_button = self._create_button_(text="Reset view", parent=self, enabled=True, callback=self.reset_view, layout=buttons_layout)
-        
-        self.dbg_button = self._create_button_(text="Debug", parent=self, enabled=True, callback=self._debug_button_callback_, layout=buttons_layout)
-
-        buttons_layout.addStretch(1)
+        # buttons_layout.addStretch(1)
         controls_layout.addLayout(buttons_layout)
         main_layout.addWidget(controls_widget, 0)
-
+        
+                
+        checkbox_widget = QWidget()
+        
+        checkbox_widget.setStyleSheet("QCheckBox { font-size: 16px; }")
+        checkbox_layout = QHBoxLayout(checkbox_widget)
+        checkbox_layout.addStretch(1)
+        main_layout.addWidget(checkbox_widget, 0)
+        
+        self._init_checkboxes_(layout=checkbox_layout)
+        
         # --- Plot Canvas ---
         self.canvas = FigureCanvas(plt.Figure(figsize=(8, 6)))
         self.canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        
         main_layout.addWidget(self.canvas, 1)
         self.ax = self.canvas.figure.subplots()
-        # Plot text is not bold.
         self.ax.set_xlabel("Time (ms)", fontsize=16)
         self.ax.set_ylabel("Membrane Potential (mV)", fontsize=16)
         self.ax.set_title("Hodgkin–Huxley Real-Time Simulation", fontsize=18)
         self.ax.grid(True)
         self.ax.set_ylim(-90, 60)
+        
+        self.ax2 = self.ax.twinx()
+        self.ax2.set_ylabel("Gating Variables (0-1)", fontsize=16)
+        self.ax2.set_ylim(-0.1, 1.2)     # Gating variables scale
+        self.ax2.grid(True)
+        
         self.canvas.mpl_connect("scroll_event", self.on_scroll)
 
         # --- Simulation State ---
-        self.model = Model()  # Create an instance of the Model class
         self.sim_time = 0.0
         self.dt = 0.025 # ~75-85 fps with 0.025 ms | 0.05ms ~ 160-170 fps | 0.01 ~ 30 fps
         self.times = []
         self.Vs = []
+        self.Y = {'Vs':[], 'm':[], 'h':[], 'n':[]}
 
         self.injection_amplitude = 10.0
         self.injection_duration = 1.0
@@ -118,8 +119,18 @@ class App(QMainWindow):
         self.simulation_counter = 0
         self.plot_update_interval = 50
         self.last_plot_update_time = 0.0
-
-        self.line, = self.ax.plot([], [], color='b', lw=1.5)
+  
+        line_Vs, = self.ax.plot([], [], color='k', lw=1.5, label='V')
+        self.ax.legend(loc='upper right')
+        
+        # shared axis - range (0,1)
+        line_m, = self.ax2.plot([], [], color='r', lw=1.5, label='m')
+        line_h, = self.ax2.plot([], [], color='g', lw=1.5, label='h')
+        line_n, = self.ax2.plot([], [], color='b', lw=1.5, label='n')
+        self.ax2.legend(loc='upper left')
+        
+        # init all lines to plot
+        self.lines = {'Vs':line_Vs, 'm':line_m, 'h':line_h, 'n':line_n}
 
         self.timer_interval = 20  # ms
         self.timer = QTimer()
@@ -129,10 +140,42 @@ class App(QMainWindow):
 
         self.pause_when_steady = False
         self.buttons = None
+    
+    def _init_checkboxes_(self, layout):
+        # Checkboxes to toggle visibility of lines
+        self.checkboxes = {}
+        self.plot_keys = ["Vs", "m", "h", "n"]
+        for key in self.plot_keys:
+            print(f'Initializing checkbox for {key}')
+
+            self.checkboxes[key] = QCheckBox(f"Show {key}", self)
+            self.checkboxes[key].setChecked(True)
+            self.checkboxes[key].setStyleSheet("font-size: 16px;")  # Increase font size
+            self.checkboxes[key].stateChanged.connect(lambda state, k=key: self.toggle_line_visibility(k, state))
+            if layout:
+                print(f'Layout found for: {key}')
+                layout.addWidget(self.checkboxes[key])
+        
+    def update_model_parameter(self, param, value):
+        setattr(self.model, param, value)
+        print(f"Updated {param} to {value}")
         
     def _debug_button_callback_(self):
         print("Debug button clicked")
     
+    def reset_model_params(self):
+        for param, (_, _, _, default) in self.neuron_params.items():
+            self.param_spinboxes[param].setValue(default)
+            setattr(self.model, param, default)
+        print("Model parameters reset to default values.")
+        
+    def toggle_line_visibility(self, key, state):
+        if state == Qt.Checked:
+            self.lines[key].set_visible(True)
+        else:
+            self.lines[key].set_visible(False)
+        self.canvas.draw_idle()
+        
     def _create_slider_(self,
                         text='DefaultText', 
                         callback=None, 
@@ -348,8 +391,14 @@ class App(QMainWindow):
             self.sim_time += self.dt
             self.simulation_counter += 1  
             if self.simulation_counter % self.plot_sampling == 0:
+                #  init all lines to plot (m,h,n)
+                # todo: make private function
                 self.times.append(self.sim_time)
-                self.Vs.append(self.model.V)
+                self.Y['Vs'].append(self.model.V)
+                self.Y['m'].append(self.model.m)
+                self.Y['h'].append(self.model.h)
+                self.Y['n'].append(self.model.n)
+                
         if self.auto_zoom:
             if self.sim_time > self.window_size_ms:
                 self.ax.set_xlim(self.sim_time - self.window_size_ms, self.sim_time)
@@ -360,18 +409,24 @@ class App(QMainWindow):
             if self.sim_time > current_xlim[1]:
                 width = current_xlim[1] - current_xlim[0]
                 self.ax.set_xlim(self.sim_time - width, self.sim_time)
-        self.line.set_data(self.times, self.Vs)
+        # todo: make this private function
+        # update all lines to plot
+        self.lines['Vs'].set_data(self.times, self.Y['Vs'])
+        self.lines['m'].set_data(self.times, self.Y['m'])
+        self.lines['h'].set_data(self.times, self.Y['h'])
+        self.lines['n'].set_data(self.times, self.Y['n'])
+        
         self.canvas.draw_idle()
         self.last_plot_update_time = self.sim_time
 
         # If the "Inject and Pause" flag is set, check for steady state. after 20ms
-        if self.pause_when_steady and len(self.Vs) >= 20*100:
-            recent_V = self.Vs[-200:]
+        if self.pause_when_steady and len(self.Y['Vs']) >= 20*100:
+            recent_V = self.Y['Vs'][-200:]
             if max(recent_V) - min(recent_V) < 1.0:
                 self.toggle_pause()
                 self.pause_when_steady = False
                 
-        print(f'fps: {(1/timer_update.get_elapsed()):0.4}')
+        # print(f'fps: {(1/timer_update.get_elapsed()):0.4}')
                 
 if __name__ == '__main__':
     # This block is not used when imported by main.py.
