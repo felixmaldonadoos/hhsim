@@ -42,30 +42,30 @@ class App(QMainWindow):
 
         # Parameter Controls
         form_layout = QFormLayout()
-        self.injectionAmplitudeSpinBox = QDoubleSpinBox(self)
-        self.injectionAmplitudeSpinBox.setRange(-1000.0, 1000.0)
-        self.injectionAmplitudeSpinBox.setDecimals(2)
-        self.injectionAmplitudeSpinBox.setValue(10.0)
-        self.injectionAmplitudeSpinBox.setStyleSheet("font-size: 16px;")
-        form_layout.addRow("Injection Amplitude (µA/cm²):", self.injectionAmplitudeSpinBox)
+        self.injectionAmplitudeSpinBox = self._create_spinbox_(text="Injection Amplitude (µA/cm²):",
+                                                               suffix='ms',
+                                                               style='font-size: 16px;',
+                                                               layout=form_layout, 
+                                                               range=(-1000.0, 1000.0),
+                                                               decimals=2, 
+                                                               default_value=10.0)
 
-        self.injectionDurationSpinBox = QDoubleSpinBox(self)
-        self.injectionDurationSpinBox.setRange(0.0, 1000.0)
-        self.injectionDurationSpinBox.setDecimals(2)
-        self.injectionDurationSpinBox.setSuffix(" ms")
-        self.injectionDurationSpinBox.setValue(1.0)
-        self.injectionDurationSpinBox.setStyleSheet("font-size: 16px;")
-        form_layout.addRow("Injection Duration (ms):", self.injectionDurationSpinBox)
+        self.injectionDurationSpinBox = self._create_spinbox_(text="Injection Duration (ms):",
+                                                                suffix='ms',
+                                                                style='font-size: 16px;',
+                                                                layout=form_layout, 
+                                                                range=(0.0, 1000.0),
+                                                                decimals=2, 
+                                                                default_value=1.0)
 
-        self.windowSlider = QSlider(Qt.Horizontal, self)
-        self.windowSlider.setRange(10, 50000)
-        self.windowSlider.setValue(10000)
-        self.windowSlider.setTickPosition(QSlider.TicksBelow)
-        self.windowSlider.setTickInterval(1000)
-        self.windowSlider.valueChanged.connect(self.update_window_size)
-        self.windowSlider.setStyleSheet("font-size: 16px;")
-        form_layout.addRow("Plot Window (ms):", self.windowSlider)
-
+        self.windowSlider = self._create_slider_(text="Plot Window (ms):",
+                                                    callback=self.update_window_size,
+                                                    style='font-size: 16px;',
+                                                    range=(10, 50000),
+                                                    default_value=10000,
+                                                    tick_interval=1000,
+                                                    orientation=Qt.Horizontal,
+                                                    layout=form_layout)
         controls_layout.addLayout(form_layout)
 
         # Buttons Layout
@@ -132,6 +132,33 @@ class App(QMainWindow):
         
     def _debug_button_callback_(self):
         print("Debug button clicked")
+    
+    def _create_slider_(self,
+                        text='DefaultText', 
+                        callback=None, 
+                        style='font-size: 16px;',
+                        range=(0,10),
+                        tick_interval=1000, 
+                        default_value=10000,
+                        orientation=Qt.Horizontal, 
+                        parent=None,
+                        layout=None)->QSlider:
+        
+        if parent is None: 
+            parent = self
+        
+        slider = QSlider(orientation, parent)
+        slider.setRange(range[0], range[1])
+        slider.setValue(default_value)
+        slider.setTickPosition(QSlider.TicksBelow)
+        slider.setTickInterval(tick_interval)
+        slider.setStyleSheet(style)
+        if callback: 
+            slider.valueChanged.connect(self.update_window_size)
+        if layout: 
+            layout.addRow("Plot Window (ms):", slider)
+        
+        return slider
         
     def _create_button_(self, 
                          text="DefaultBtn", 
@@ -145,8 +172,7 @@ class App(QMainWindow):
             parent = self
         btn = QPushButton(text, parent)
         btn.setEnabled(enabled)
-        if style:
-            btn.setStyleSheet(style)
+        btn.setStyleSheet(style)
             
         if callback is None: 
             raise ValueError("callback must be a function")
@@ -155,12 +181,39 @@ class App(QMainWindow):
         if layout is not None:
             layout.addWidget(btn)
         return btn
+
+    def _create_spinbox_(self,
+                         text="DefaultSpinBox",
+                         callback=None,
+                         style="font-size: 16px; font-weight: bold;",
+                         suffix="",
+                         enabled=True,
+                         parent=None,
+                         min_height=40,
+                         layout=None, 
+                         range = (0,100), 
+                         decimals=2, 
+                         default_value=10)->QDoubleSpinBox:
+        if parent is None:
+            parent = self
+        
+        spinbox = QDoubleSpinBox(parent)
+        spinbox.setRange(range[0], range[1])
+        spinbox.setDecimals(decimals)
+        spinbox.setSuffix(suffix)
+        spinbox.setValue(default_value)
+        spinbox.setStyleSheet(style)
+        if layout is not None:
+            layout.addRow(text, spinbox)
+        
+        return spinbox
         
     def  _init_buttons_(self, bdict:dict=None):
         if not isinstance(bdict, dict):
             raise ValueError("button_dic must be a dictionary")
         for key, value in bdict.items():
             return
+   
     def update_window_size(self, value):
         self.window_size_ms = value
         self.auto_zoom = True
@@ -285,7 +338,6 @@ class App(QMainWindow):
             self.inject_button.setEnabled(True)
             self.inject_and_pause_button.setEnabled(True)
             self.pause_when_steady = False
-
     
     def update_simulation(self):
         timer_update = Timer(text="Outer update")
