@@ -2,9 +2,10 @@
 import numpy as np
 
 class Model:
-    def __init__(self):
+    def __init__(self, params=None):
         
-        self.neuron_params = {
+        # hard code defaults for neuron parameters
+        self.neuron_params = { 
             "C_m": ("Membrane Capacitance (µF/cm²):", 0.1, 5.0, 1.0),
             "g_Na": ("Sodium Conductance (mS/cm²):", 50.0, 200.0, 120.0),
             "g_K": ("Potassium Conductance (mS/cm²):", 10.0, 100.0, 36.0),
@@ -14,6 +15,19 @@ class Model:
             "E_L": ("Leak Reversal Potential (mV):", -70.0, -30.0, -54.387)
         }
         
+        # Override default values at index 3 if given in params
+        # I KNOW: overriding/defaulting is not the most elegant way, but it is simple
+        if params:
+            for key in self.neuron_params:
+                label, min_val, max_val, default_val = self.neuron_params[key]
+                if key in params:
+                    # print('Overriding:', key, 'to', params[key])
+                    new_val = params[key]
+                # else:
+                #     # print('Defaulting:', key, 'to', params[key])
+                #     new_val = default_val
+                self.neuron_params[key] = (label, min_val, max_val, new_val)
+        
         # Hodgkin–Huxley parameters (classic values)
         self.C_m  = self.neuron_params['C_m'][3]
         self.g_Na = self.neuron_params['g_Na'][3]
@@ -22,6 +36,7 @@ class Model:
         self.E_Na = self.neuron_params['E_Na'][3]
         self.E_K  = self.neuron_params['E_K'][3]
         self.E_L  = self.neuron_params['E_L'][3]
+        
 
         # Initial conditions (resting state ~ -65 mV)
         self.V = -65.0

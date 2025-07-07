@@ -1,24 +1,29 @@
 import os
 import json
 
-# Simple configuration handler that reads .json config files
+# Configuration handler that reads .json config files, each with one or more simulations
 
 class ConfigHandler:
     def __init__(self):
-        self.configs = {}
+        self.configs = {}  # Maps sim_id → config dict
 
     def _load_config(self, file_path):
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"Configuration file {file_path} does not exist.")
         
         with open(file_path, 'r') as f:
-            config_data = json.load(f)
-        
-        sim_id = config_data.get("sim_id")
-        if not sim_id:
-            raise ValueError(f"Missing 'sim_id' in config: {file_path}")
-        
-        self.configs[sim_id] = config_data
+            all_configs = json.load(f)
+
+        if not isinstance(all_configs, dict):
+            raise ValueError(f"Top-level JSON structure must be a dictionary: {file_path}")
+
+        for sim_id, config_data in all_configs.items():
+            if not isinstance(config_data, dict):
+                print(f"Skipping entry {sim_id}: not a valid dict")
+                continue
+            if "sim_id" not in config_data:
+                config_data["sim_id"] = sim_id  # auto-fill if missing
+            self.configs[sim_id] = config_data
 
     def load_all_configs(self, directory_path):
         if not os.path.isdir(directory_path):
@@ -31,9 +36,21 @@ class ConfigHandler:
                     self._load_config(full_path)
                 except Exception as e:
                     print(f"Skipping {filename}: {e}")
-
+# if __name__ == "__main__":
+#     handler = ConfigHandler()
+#     handler.load_all_configs("tests/")
+#     print(json.dumps(handler.configs, indent=2))
 
 if __name__ == "__main__":
     handler = ConfigHandler()
     handler.load_all_configs("tests/")
-    print(handler.configs)
+
+    if handler.configs:
+        # Get the last added (sim_id, config) pair
+        last_sim_id = list(handler.configs.keys())[-1]
+        last_config = handler.configs[last_sim_id]
+
+        print(f"Last sim ID: {last_sim_id}")
+        print(json.dumps(last_config, indent=2))
+    else:
+        print("No valid configs loaded.")
