@@ -14,12 +14,11 @@ from helpers.logger import Logger
 # Spark components
 import pyspark
 from spark.spark_session import get_spark_session
-from spark.loader import load_flat_sim_params, load_flat_sim_data
+from spark.loader import load_flat_sim_params, load_flat_sim_data, save_combined_as_parquet, load_combined_from_parquet
 from spark.transformer import filter_by_param
 from spark.analysis import SparkAnalysis
 from pyspark.sql import functions as F
 from pyspark.sql.types import ArrayType, StructType, StructField, IntegerType
-
 
 logger = Logger("HHSim")
 
@@ -155,4 +154,27 @@ if __name__ == "__main__":
 
         logger.log(f"[Summary view for {base_name}]")
         df_summary.show(truncate=False)
+        
+        output_file = save_combined_as_parquet(df_combined, base_name, output_root="outputs/parquet")
+        logger.log(f"Saved combined data to Parquet: {output_file}",bSuccess=True)
         # df_combined.show(truncate=False)
+        
+
+        logger.warn(f'Testing load_combined_from_parquet for {base_name}')
+        df_loaded = load_combined_from_parquet(spark, output_file.split("/")[-1].replace("_combined", ""))
+        logger.log(f"Loaded {df_loaded.count()} rows from Parquet: {output_file}", bSuccess=True)
+        # df_loaded.show(truncate=False)
+        
+        df_summary = (
+            df_loaded
+            .select(
+                "sim_id",
+               "dt",
+                pyspark.sql.functions.size("V").alias("len_V"),
+                pyspark.sql.functions.size("spike_windows").alias("N spikes")
+            )
+            .orderBy("sim_id")
+        )
+
+        logger.log(f"[Summary view for {base_name}]")
+        df_summary.show(truncate=False)
