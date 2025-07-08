@@ -2,17 +2,26 @@
 
 import os
 import json
+
+# my custom modules 
 from config.confighandler import ConfigHandler
 from model import Model
 from modelparams import ModelParams
 from experimentdata import SimData, ExperimentData
+from helpers.progessbar import ProgressBar
+from helpers.logger import Logger
 
 # Spark components
+import pyspark
 from spark.spark_session import get_spark_session
 from spark.loader import load_flat_sim_params, load_flat_sim_data
 from spark.transformer import filter_by_param
 from spark.analysis import SparkAnalysis
-from helpers.progessbar import ProgressBar
+from pyspark.sql import functions as F
+from pyspark.sql.types import ArrayType, StructType, StructField, IntegerType
+
+
+logger = Logger("HHSim")
 
 def run_simulation(params, sim_id):
     # print(f"Running simulation: {sim_id}")
@@ -60,7 +69,6 @@ if __name__ == "__main__":
             experiments[source_file] = ExperimentData(source_file)
 
         experiments[source_file].add_sim(sim_data)
-        # print(f"Finished simulation: {sim_id} (from {source_file})")
 
     pb.finish()
     
@@ -70,7 +78,7 @@ if __name__ == "__main__":
         with open(output_file, "w") as f:
             json.dump(experiment.to_dict(), f, indent=2)
 
-        print(f"Saved grouped results → {output_file}")
+        logger.log(f"Saved grouped results → {output_file}")
 
     # Optional Spark postprocessing example
     spark = get_spark_session("HHSim Analysis")
@@ -80,17 +88,71 @@ if __name__ == "__main__":
         
         ## show params summary stats
         # df = load_flat_sim_params(spark, result_file)
-        # print(f"\n[Summary stats for {base_name}]")
-        # summary = SparkAnalysis.compute_summary_stats(df)
-        # summary.show()
-
         # print(f"\n[High g_Na sims from {base_name}]")
         # high_gNa = filter_by_param(df, "g_Na", 150)
         # high_gNa.show()
         
         ## get spikes 
         df_data = load_flat_sim_data(spark, result_file)
-        print(f"\n[Spike detection for {base_name}]")
-        spikes = SparkAnalysis.detect_spikes_sparkdf(spark,df_data)
-        spikes.show()
+        df_spikes = SparkAnalysis.detect_spikes_sparkdf(spark,df_data)
+        # df_spikes.show()
         
+        df_spike_counts = (
+            df_data
+            .select("sim_id")
+            .join(
+                df_spikes.groupBy("sim_id").count().withColumnRenamed("count", "num_spikes"),
+                on="sim_id",
+                how="left"
+            )
+            .fillna(0, subset=["num_spikes"])
+            .orderBy("sim_id")
+        )
+        
+        # group spike windows per sim_id
+        df_spike_windows = (
+            df_spikes
+            .groupBy("sim_id")
+            .agg(F.collect_list(F.struct("spike_start", "spike_end")).alias("spike_windows"))
+        )
+        
+        df_combined = df_data.join(df_spike_windows, on="sim_id", how="left")
+
+        # fill nans (sims with no spikes)
+        empty_struct = F.struct(
+            F.lit(None).cast(IntegerType()).alias("spike_start"),
+            F.lit(None).cast(IntegerType()).alias("spike_end")
+        )
+        
+        empty_array_literal = F.expr("array()").cast(ArrayType(StructType([
+            StructField("spike_start", IntegerType(), True),
+            StructField("spike_end", IntegerType(), True)
+        ])))
+        
+        df_combined = df_combined.withColumn(
+            "spike_windows",
+            F.when(F.col("spike_windows").isNull(), empty_array_literal).otherwise(F.col("spike_windows"))
+        )
+        
+        params_struct = df_combined.select("params").schema["params"].dataType
+        param_cols = [F.col("params." + field.name).alias(field.name) for field in params_struct.fields]
+
+        df_combined = df_combined.select("sim_id", "V", "time", "spike_windows", "params", *param_cols)
+        
+        logger.log(f"\n[Combined data with spikes for {base_name}]")
+        logger.log("Columns:", df_combined.columns)
+        
+        df_summary = (
+            df_combined
+            .select(
+                "sim_id",
+               "dt",
+                pyspark.sql.functions.size("V").alias("len_V"),
+                pyspark.sql.functions.size("spike_windows").alias("N spikes")
+            )
+            .orderBy("sim_id")
+        )
+
+        logger.log(f"[Summary view for {base_name}]")
+        df_summary.show(truncate=False)
+        # df_combined.show(truncate=False)
