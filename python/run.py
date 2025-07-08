@@ -9,7 +9,7 @@ from experimentdata import SimData, ExperimentData
 
 # Spark components
 from spark.spark_session import get_spark_session
-from spark.loader import load_flat_sim_params
+from spark.loader import load_flat_sim_params, load_flat_sim_data
 from spark.transformer import filter_by_param
 from spark.analysis import SparkAnalysis
 from helpers.progessbar import ProgressBar
@@ -46,7 +46,7 @@ if __name__ == "__main__":
 
     experiments = {}
     
-    pb = ProgressBar(total=len(handler.configs.items()), prefix="Running simulations ")
+    pb = ProgressBar(total=len(handler.configs.items()), prefix="Running simulations")
     for i, (sim_id, config) in enumerate(handler.configs.items()):
         pb.update(i, label=f"Running {sim_id}")
 
@@ -77,12 +77,20 @@ if __name__ == "__main__":
     for source_file in experiments:
         base_name = os.path.splitext(source_file)[0]
         result_file = os.path.join(output_dir, f"{base_name}_results.json")
-        df = load_flat_sim_params(spark, result_file)
+        
+        ## show params summary stats
+        # df = load_flat_sim_params(spark, result_file)
+        # print(f"\n[Summary stats for {base_name}]")
+        # summary = SparkAnalysis.compute_summary_stats(df)
+        # summary.show()
 
-        print(f"\n[Summary stats for {base_name}]")
-        summary = SparkAnalysis.compute_summary_stats(df)
-        summary.show()
-
-        print(f"\n[High g_Na sims from {base_name}]")
-        high_gNa = filter_by_param(df, "g_Na", 150)
-        high_gNa.show()
+        # print(f"\n[High g_Na sims from {base_name}]")
+        # high_gNa = filter_by_param(df, "g_Na", 150)
+        # high_gNa.show()
+        
+        ## get spikes 
+        df_data = load_flat_sim_data(spark, result_file)
+        print(f"\n[Spike detection for {base_name}]")
+        spikes = SparkAnalysis.detect_spikes_sparkdf(spark,df_data)
+        spikes.show()
+        

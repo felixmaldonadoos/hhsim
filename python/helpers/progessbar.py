@@ -8,11 +8,11 @@ class ProgressBar:
         self.current = 0
 
     def update(self, current, label=''):
-        self.current = current
-        percent = float(current) / self.total
+        self.current = current + 1
+        percent = float(self.current) / self.total
         filled_length = int(round(self.bar_length * percent))
         bar = '=' * filled_length + '-' * (self.bar_length - filled_length)
-        progress_msg = f'\r{self.prefix}[{bar}] {percent * 100:.1f}% ({current}/{self.total}) {label}'
+        progress_msg = f'\r{self.prefix} [{bar}] {percent * 100:.1f}% ({self.current}/{self.total}) {label}'
         sys.stdout.write(progress_msg)
         sys.stdout.flush()
 
