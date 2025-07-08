@@ -45,10 +45,15 @@ def run_simulation(params, sim_id):
 
 if __name__ == "__main__":
     config_path = "config/tests"
+    
+    base_dir = os.path.join(os.getcwd(),"python")
+    logger.warn((f"Base directory: {base_dir}"))
+    
+    config_path = os.path.join(base_dir,config_path)
     handler = ConfigHandler()
     handler.load_all_configs(config_path)
 
-    base_dir = os.path.dirname(os.path.abspath(__file__))
+    # base_dir = os.path.dirname(os.path.abspath(__file__))
     output_dir = os.path.join(base_dir, "outputs", "traces")
     os.makedirs(output_dir, exist_ok=True)
 
@@ -158,23 +163,3 @@ if __name__ == "__main__":
         output_file = save_combined_as_parquet(df_combined, base_name, output_root="outputs/parquet")
         logger.log(f"Saved combined data to Parquet: {output_file}",bSuccess=True)
         # df_combined.show(truncate=False)
-        
-
-        logger.warn(f'Testing load_combined_from_parquet for {base_name}')
-        df_loaded = load_combined_from_parquet(spark, output_file.split("/")[-1].replace("_combined", ""))
-        logger.log(f"Loaded {df_loaded.count()} rows from Parquet: {output_file}", bSuccess=True)
-        # df_loaded.show(truncate=False)
-        
-        df_summary = (
-            df_loaded
-            .select(
-                "sim_id",
-               "dt",
-                pyspark.sql.functions.size("V").alias("len_V"),
-                pyspark.sql.functions.size("spike_windows").alias("N spikes")
-            )
-            .orderBy("sim_id")
-        )
-
-        logger.log(f"[Summary view for {base_name}]")
-        df_summary.show(truncate=False)
