@@ -21,8 +21,14 @@ class ConfigHandler:
             if not isinstance(config_data, dict):
                 print(f"Skipping entry {sim_id}: not a valid dict")
                 continue
+
+            # Inject sim_id if missing
             if "sim_id" not in config_data:
-                config_data["sim_id"] = sim_id  # auto-fill if missing
+                config_data["sim_id"] = sim_id
+
+            # Add source file name to each config
+            config_data["_source_file"] = os.path.basename(file_path)
+
             self.configs[sim_id] = config_data
 
     def load_all_configs(self, directory_path):
@@ -36,10 +42,6 @@ class ConfigHandler:
                     self._load_config(full_path)
                 except Exception as e:
                     print(f"Skipping {filename}: {e}")
-# if __name__ == "__main__":
-#     handler = ConfigHandler()
-#     handler.load_all_configs("tests/")
-#     print(json.dumps(handler.configs, indent=2))
 
 if __name__ == "__main__":
     handler = ConfigHandler()

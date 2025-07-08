@@ -1,14 +1,15 @@
 ## this file simply runs the model for a predefined number of steps
 
 import os
+import json
 from config.confighandler import ConfigHandler
 from model import Model
 from modelparams import ModelParams
+from experimentdata import SimData, ExperimentData  # new classes
 
 def run_simulation(params, sim_id):
     print(f"Running simulation: {sim_id}")
 
-    # Pass params as dictionary to Model
     model = Model(params.to_dict())
 
     duration = params.duration
@@ -16,39 +17,47 @@ def run_simulation(params, sim_id):
     I_ext = params.I_ext
     num_steps = int(duration / dt)
 
-    results = {
-        "time": [],
-        "V": []
-    }
+    time_series = []
+    voltage_series = []
 
     time = 0.0
     for _ in range(num_steps):
         model.step(dt, I_ext)
-        results["time"].append(time)
-        results["V"].append(model.V)
+        time_series.append(time)
+        voltage_series.append(model.V)
         time += dt
 
-    return results
+    return time_series, voltage_series
 
 if __name__ == "__main__":
-    # Load config(s)
-    config_path = "config/tests"  # Adjust if needed
+    config_path = "config/tests"
     handler = ConfigHandler()
     handler.load_all_configs(config_path)
 
-    # Output directory
-    output_dir = "outputs/traces"
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    output_dir = os.path.join(base_dir, "outputs", "traces")
     os.makedirs(output_dir, exist_ok=True)
 
-    # Run each simulation
+    experiments = {}  # filename → ExperimentData
+
     for sim_id, config in handler.configs.items():
-        params = ModelParams(config)  # fills defaults
-        data = run_simulation(params, sim_id)
+        params = ModelParams(config)
+        time, voltage = run_simulation(params, sim_id)
 
-        output_file = os.path.join(output_dir, f"{sim_id}.csv")
-        with open(output_file, 'w') as f:
-            f.write("time,V\n")
-            for t, v in zip(data["time"], data["V"]):
-                f.write(f"{t},{v}\n")
+        sim_data = SimData(sim_id, params.to_dict(), time, voltage)
+        source_file = config.get("_source_file", "unknown_config.json")
 
-        # print(f"Finished simulation: {sim_id} → saved to {output_file}")
+        if source_file not in experiments:
+            experiments[source_file] = ExperimentData(source_file)
+
+        experiments[source_file].add_sim(sim_data)
+        print(f"Finished simulation: {sim_id} (from {source_file})")
+
+    # Save all experiment results
+    for source_file, experiment in experiments.items():
+        base_name = os.path.splitext(source_file)[0]
+        output_file = os.path.join(output_dir, f"{base_name}_results.json")
+        with open(output_file, "w") as f:
+            json.dump(experiment.to_dict(), f, indent=2)
+
+        print(f"Saved grouped results → {output_file}")
