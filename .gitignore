@@ -3,6 +3,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# docker ip stuff
+spark_ips.txt
+
+
 # C extensions
 *.so
 
