@@ -4,8 +4,8 @@ __pycache__/
 *$py.class
 
 # data
-/outputs/parquet/
-**outputs/*
+/outputs/parquet/*.parquet
+**outputs/*.parquet
 
 # docker ip stuff
 spark_ips.txt
