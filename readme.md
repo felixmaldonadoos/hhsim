@@ -2,6 +2,8 @@
 
 **hhsim** is a Python-based simulation of the Hodgkin-Huxley neuron model, featuring a simple graphical interface built with PyQt5. It allows users to explore the dynamics of action potential generation by adjusting key biophysical parameters in real time.
 
+This project uses `Apache Spark` to distribute processing load  and `PostreSQL` database for up/downloading data.  [WIP]
+
 ## Setup
 
 ### Spark IP
