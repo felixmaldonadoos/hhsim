@@ -6,6 +6,6 @@ from pyspark.sql import SparkSession
 def get_spark_session(app_name="HHSimApp"):
     return SparkSession.builder \
         .appName(app_name) \
-        .master("local[*]") \
+        .master("spark://172.30.127.68:7077") \
         .config("spark.driver.memory", "4g") \
         .getOrCreate()
