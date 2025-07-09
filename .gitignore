@@ -5,7 +5,7 @@ __pycache__/
 
 # data
 /outputs/parquet/*.parquet
-**outputs/*.parquet
+**outputs/**/*.parquet
 
 # docker ip stuff
 spark_ips.txt
