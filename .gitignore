@@ -3,9 +3,13 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# data
+/outputs/parquet/
+**outputs/*
+
 # docker ip stuff
 spark_ips.txt
-
+**/artifacts/
 
 # C extensions
 *.so
