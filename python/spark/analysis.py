@@ -86,3 +86,16 @@ class SparkAnalysis:
         ])
 
         return spark.createDataFrame(rows, schema=schema)
+
+    @staticmethod
+    def compute_spike_width(df_spikes: DataFrame) -> DataFrame:
+        """
+        Compute the width of each spike window in milliseconds.
+        Assumes spike_start and spike_end are in milliseconds.
+        """
+        return None
+        return df_spikes.withColumn(
+            "spike_width",
+            col("spike_end") - col("spike_start")
+        )
+    
