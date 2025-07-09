@@ -43,7 +43,10 @@ def run_simulation(params, sim_id):
 
     return time_series, voltage_series
 
+
 if __name__ == "__main__":
+    import time as tm
+    t0 = tm.time()
     config_path = "config/tests"
     
     base_dir = os.path.join(os.getcwd(),"python")
@@ -162,4 +165,7 @@ if __name__ == "__main__":
         
         output_file = save_combined_as_parquet(df_combined, base_name, output_root="outputs/parquet")
         logger.log(f"Saved combined data to Parquet: {output_file}",bSuccess=True)
+    
+    te = tm.time() - t0
+    logger.log(f"Total execution time: {te:.2f} seconds", bSuccess=True)
         # df_combined.show(truncate=False)
