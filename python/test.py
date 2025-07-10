@@ -22,30 +22,7 @@ from spark.analysis import SparkAnalysis
 from pyspark.sql import functions as F
 from pyspark.sql.types import ArrayType, StructType, StructField, IntegerType
 
-logger = Logger("HHSim")
-
-def run_simulation(params, sim_id):
-    # print(f"Running simulation: {sim_id}")
-    model = Model(params.to_dict())
-
-    duration = params.duration
-    dt = params.dt
-    I_ext = params.I_ext
-    num_steps = int(duration / dt)
-
-    time_series = []
-    voltage_series = []
-
-    time = 0.0
-    for _ in range(num_steps):
-        model.step(dt, I_ext)
-        time_series.append(time)
-        voltage_series.append(model.V)
-        time += dt
-
-    return time_series, voltage_series
-
-
+logger = Logger("HHSimTEST")
 
 if __name__ == "__main__":
     import time as tm
@@ -65,15 +42,14 @@ if __name__ == "__main__":
 
     experiments = {}
     
-    pb = ProgressBar(total=len(handler.configs.items()), prefix="Running simulations")
+    pb = ProgressBar(total=len(handler.configs.items()), prefix="Generating Params")
     params_list = []
     for i, (sim_id, config) in enumerate(handler.configs.items()):
-        # pb.update(i, label=f"Running {sim_id}")
-
+        pb.update(i)
         params = ModelParams(config, sim_id=sim_id)
-        # print(f"Params: {params.to_dict()}")
         params_list.append(params.to_dict())
     
+    pb.finish()
     config = postgresql_config.PostgresConfig()
     
     logger.log("PostgresConfig initialized")
@@ -102,9 +78,6 @@ if __name__ == "__main__":
     data_manager.upload_configs(params_list, conn)
     
     configs_from_db = data_manager.get_configs_from_db(conn)
-        
-    for c in configs_from_db:
-        print(c)
     connmanager.close()
     
 
