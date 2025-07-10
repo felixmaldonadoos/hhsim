@@ -24,6 +24,27 @@ from pyspark.sql.types import ArrayType, StructType, StructField, IntegerType
 
 logger = Logger("HHSimTEST")
 
+def run_simulation(params_dict:dict=None):
+    # print(f"Running simulation: {sim_id}")
+    model = Model(params.to_dict())
+
+    duration = params.duration
+    dt = params.dt
+    I_ext = params.I_ext
+    num_steps = int(duration / dt)
+
+    time_series = []
+    voltage_series = []
+
+    time = 0.0
+    for _ in range(num_steps):
+        model.step(dt, I_ext)
+        time_series.append(time)
+        voltage_series.append(model.V)
+        time += dt
+
+    return time_series, voltage_series
+
 if __name__ == "__main__":
     import time as tm
     t0 = tm.time()
@@ -54,31 +75,27 @@ if __name__ == "__main__":
     
     logger.log("PostgresConfig initialized")
 
+    ## start 
     connmanager = connection.PostgresConnectionManager(config)
     conn, cursor = connmanager.connect()
-
-    cursor.execute("""DROP TABLE IF EXISTS simulation_configs""")
     
-    cursor.execute("""CREATE TABLE simulation_configs (
-        id SERIAL PRIMARY KEY,
-        sim_id TEXT UNIQUE,
-        C_m FLOAT,
-        g_Na FLOAT,
-        g_K FLOAT,
-        g_L FLOAT,
-        E_Na FLOAT,
-        E_K FLOAT,
-        E_L FLOAT,
-        I_ext FLOAT,
-        duration FLOAT,
-        dt FLOAT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
-    """)
+    ### start body 
+    # cursor.execute("""DROP TABLE IF EXISTS simulation_configs""")
     
-    data_manager.upload_configs(params_list, conn)
+    data_manager.generate_params_table(conn) # Create the table if it doesn't exist
+    data_manager.upload_configs(params_list, conn) # upload the parameters to the database - will overwrite existing entries
     
-    configs_from_db = data_manager.get_configs_from_db(conn)
-    connmanager.close()
+    configs_from_db = data_manager.get_configs_from_db(conn) # fetch all configs from the database
+    
+    data_manager.generate_results_table(conn) # Create the results table if it doesn't exist
+    for config in configs_from_db:
+        time, voltage = run_simulation(params)
+        sim_data = SimData(config["sim_id"], config, time, voltage)      
+        data_manager.upload_simulation_result_row(conn=conn, sim_data=sim_data)
+    ### end body
+    
+    ## end 
+    connmanager.close() 
     
 
 # conn.commit()

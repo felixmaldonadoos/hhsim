@@ -15,6 +15,7 @@ class JsonSerializableNode:
 class SimData(JsonSerializableNode):
     def __init__(self, sim_id, params, time, V):
         super().__init__(sim_id)
+        self.sim_id = sim_id
         self.params = params
         self.time = time
         self.V = V
