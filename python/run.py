@@ -64,13 +64,14 @@ if __name__ == "__main__":
     
     pb = ProgressBar(total=len(handler.configs.items()), prefix="Running simulations")
     for i, (sim_id, config) in enumerate(handler.configs.items()):
-        pb.update(i, label=f"Running {sim_id}")
+        # pb.update(i, label=f"Running {sim_id}")
 
         params = ModelParams(config)
         time, voltage = run_simulation(params, sim_id)
 
         sim_data = SimData(sim_id, params.to_dict(), time, voltage)
         source_file = config.get("_source_file", "unknown_config.json")
+        print(f"Params: {params.to_dict()}")
 
         if source_file not in experiments:
             experiments[source_file] = ExperimentData(source_file)
@@ -78,6 +79,8 @@ if __name__ == "__main__":
         experiments[source_file].add_sim(sim_data)
 
     pb.finish()
+    print(experiments)
+    exit(0)  # Exit early for testing purposes
     
     for source_file, experiment in experiments.items():
         base_name = os.path.splitext(source_file)[0]

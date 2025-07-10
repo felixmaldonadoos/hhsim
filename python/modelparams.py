@@ -1,6 +1,8 @@
 class ModelParams:
-    def __init__(self, config_dict=None):
+    def __init__(self, config_dict=None, sim_id:str = None):
         # Full parameter metadata with defaults as the last item in each tuple
+        
+        self.sim_id = sim_id
         self.neuron_params = {
             "C_m":  ("Membrane Capacitance (µF/cm²):", 0.1, 5.0, 1.0),
             "g_Na": ("Sodium Conductance (mS/cm²):", 50.0, 200.0, 120.0),
@@ -30,5 +32,6 @@ class ModelParams:
         } | {
             "I_ext": self.I_ext,
             "duration": self.duration,
-            "dt": self.dt
+            "dt": self.dt, 
+            "sim_id": self.sim_id
         }
