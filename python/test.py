@@ -81,22 +81,32 @@ if __name__ == "__main__":
     
     ### start body 
     # cursor.execute("""DROP TABLE IF EXISTS simulation_configs""")
-    
+    cursor.execute("""DROP TABLE IF EXISTS simulation_results""")
+    conn.commit() # commit the changes to the database
+    exit(1)
     data_manager.generate_params_table(conn) # Create the table if it doesn't exist
     data_manager.upload_configs(params_list, conn) # upload the parameters to the database - will overwrite existing entries
-    
     configs_from_db = data_manager.get_configs_from_db(conn) # fetch all configs from the database
-    
     data_manager.generate_results_table(conn) # Create the results table if it doesn't exist
-    for config in configs_from_db:
-        time, voltage = run_simulation(params)
+    
+    # run simulations
+    pb = ProgressBar(total=len(configs_from_db), prefix="Running Simulations")
+    sim_data_list = []
+    for i, config in enumerate(configs_from_db):
+        time, voltage = run_simulation(config)
         sim_data = SimData(config["sim_id"], config, time, voltage)      
-        data_manager.upload_simulation_result_row(conn=conn, sim_data=sim_data)
+        sim_data_list.append(sim_data)
+        pb.update(i)    
+    pb.finish()
+    
+    # upload simulation results to the database
+    pb = ProgressBar(total=len(sim_data_list), prefix="Uploading Results to DB")
+    for i, data in enumerate(sim_data_list):
+        data_manager.upload_simulation_result_row(conn=conn, sim_data=data)
+        pb.update(i)
+    pb.finish()
     ### end body
     
     ## end 
     connmanager.close() 
     
-
-# conn.commit()
-# connmanager.close()

@@ -107,6 +107,10 @@ def generate_results_table(conn):
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
+        cur.execute("""
+            ALTER TABLE simulation_results
+            ADD CONSTRAINT unique_sim_result UNIQUE (sim_id)
+        """)
         conn.commit()
         print("'simulation_results' created")
         
@@ -115,9 +119,13 @@ def upload_simulation_result_row(conn, sim_data:dict=None):
         sql = """
             INSERT INTO simulation_results (sim_id, time_series, voltage_series)
             VALUES (%s, %s, %s)
-            RETURNING id;
+            ON CONFLICT (sim_id) DO UPDATE SET
+                time_series = EXCLUDED.time_series,
+                voltage_series = EXCLUDED.voltage_series,
+                created_at = CURRENT_TIMESTAMP
+            RETURNING id
         """
         cur.execute(sql, (sim_data.sim_id, sim_data.time, sim_data.V))
         new_id = cur.fetchone()[0]
         conn.commit()
-        print(f"Inserted simulation result for '{sim_data.sim_id}' with result ID: {new_id}")
+        return f"Inserted simulation result for '{sim_data.sim_id}' with result ID: {new_id}"
