@@ -27,7 +27,6 @@ This project uses `Apache Spark` to distribute processing load  and `PostreSQL` 
 | Apache Spark         | 4.0.0                                            |
 | PostgreSQL         | 17                                            |
 
-
 You may already have these system packages installed, but always worth to double check: 
 
 ```bash
@@ -43,10 +42,8 @@ pip install pyspark tqdm  psycopg2
 If you are running **with GUI** (tested on `WSL2 Ubuntu 22.04`), you need to install the following `python` dependencies with:
 
 ```bash
-pip install pyqt5 pyqtdarktheme matplotlib numpy pyspark tqdm psycopg2
+pip install pyqt5 pyqtdarktheme matplotlib numpy pyspark tqdm psycopg2 pyarrow
 ```
-
-
 
 ## Setup
 
@@ -85,5 +82,3 @@ If you are running your postresql server on a windows machine and are connecting
 - PyQt5
 - NumPy
 - Matplotlib (optional, if plotting is included)
-
-

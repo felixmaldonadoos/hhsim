@@ -1,6 +1,6 @@
 #!/bin/bash
 echo "Starting Spark master..."
-SPARK_LOCAL_IP=$SPARK_MASTER_IP $SPARK_HOME/sbin/start-master.sh \
+$SPARK_HOME/sbin/start-master.sh \
     --host $SPARK_MASTER_IP \
     --port $SPARK_MASTER_PORT \
     --webui-port $SPARK_MASTER_WEBUI_PORT
