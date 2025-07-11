@@ -83,3 +83,19 @@ def load_combined_from_parquet(spark: pyspark.sql.SparkSession = None,
 
     print(f"Loading Parquet from: {input_path}")
     return spark.read.parquet(input_path)
+
+
+
+def load_postgres_table(spark, table_name:str="simulation_results"):
+        SQL_IP   = os.environ.get("SPARK_POSTGRESQL_IP")
+        SQL_PORT = os.environ.get("SPARK_POSTGRESQL_PORT")
+        SQL_PW   = os.environ.get("SPARK_POSTGRESQL_PW")
+        SQL_USER = os.environ.get("SPARK_POSTGRESQL_USER")
+        return spark.read \
+            .format("jdbc") \
+            .option("url", f"jdbc:postgresql://{SQL_IP}:{SQL_PORT}/postgres") \
+            .option("dbtable", table_name) \
+            .option("user", SQL_USER) \
+            .option("password", SQL_PW) \
+            .option("driver", "org.postgresql.Driver") \
+            .load()

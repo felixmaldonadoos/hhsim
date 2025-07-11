@@ -1,8 +1,10 @@
 from pyspark.sql import SparkSession
-
+import os 
+SPARK_MASTER_IP   = os.environ.get("SPARK_MASTER_IP")
+SPARK_MASTER_PORT = os.environ.get("SPARK_MASTER_PORT")    
 spark = SparkSession.builder \
     .appName("WorkerTestJob") \
-    .master("spark://172.30.127.68:7077") \
+    .master(f"spark://{SPARK_MASTER_IP}:{SPARK_MASTER_PORT}") \
     .getOrCreate()
 
 # Generate a distributed DataFrame

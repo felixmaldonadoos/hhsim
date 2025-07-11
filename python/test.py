@@ -10,7 +10,7 @@ from modelparams import ModelParams
 from experimentdata import SimData, ExperimentData
 from helpers.progessbar import ProgressBar
 from helpers.logger import Logger
-
+import sparql
 from postgresql import postgresql_config, connection, data_manager
 
 # Spark components
@@ -72,39 +72,65 @@ if __name__ == "__main__":
     
     pb.finish()
     config = postgresql_config.PostgresConfig()
-    
     logger.log("PostgresConfig initialized")
 
     ## start 
     connmanager = connection.PostgresConnectionManager(config)
     conn, cursor = connmanager.connect()
-    
-    ### start body 
+
+
+    ### start body
     # cursor.execute("""DROP TABLE IF EXISTS simulation_configs""")
-    cursor.execute("""DROP TABLE IF EXISTS simulation_results""")
-    conn.commit() # commit the changes to the database
-    exit(1)
-    data_manager.generate_params_table(conn) # Create the table if it doesn't exist
-    data_manager.upload_configs(params_list, conn) # upload the parameters to the database - will overwrite existing entries
-    configs_from_db = data_manager.get_configs_from_db(conn) # fetch all configs from the database
-    data_manager.generate_results_table(conn) # Create the results table if it doesn't exist
+    # cursor.execute("""DROP TABLE IF EXISTS simulation_results""")
+    # conn.commit() # commit the changes to the database
+    # data_manager.generate_params_table(conn) # Create the table if it doesn't exist
+    # data_manager.upload_configs(params_list, conn) # upload the parameters to the database - will overwrite existing entries
+    # configs_from_db = data_manager.get_configs_from_db(conn) # fetch all configs from the database
+    # data_manager.generate_results_table(conn) # Create the results table if it doesn't exist
     
-    # run simulations
-    pb = ProgressBar(total=len(configs_from_db), prefix="Running Simulations")
-    sim_data_list = []
-    for i, config in enumerate(configs_from_db):
-        time, voltage = run_simulation(config)
-        sim_data = SimData(config["sim_id"], config, time, voltage)      
-        sim_data_list.append(sim_data)
-        pb.update(i)    
-    pb.finish()
+    # # run simulations
+    # pb = ProgressBar(total=len(configs_from_db), prefix="Running Simulations")
+    # sim_data_list = []
+    # for i, config in enumerate(configs_from_db):
+    #     time, voltage = run_simulation(config)
+    #     sim_data = SimData(config["sim_id"], config, time, voltage)     
+    #     sim_data_list.append(sim_data)
+    #     pb.update(i)    
+    # pb.finish()
     
-    # upload simulation results to the database
-    pb = ProgressBar(total=len(sim_data_list), prefix="Uploading Results to DB")
-    for i, data in enumerate(sim_data_list):
-        data_manager.upload_simulation_result_row(conn=conn, sim_data=data)
-        pb.update(i)
-    pb.finish()
+    # # upload simulation results to the database
+    # pb = ProgressBar(total=len(sim_data_list), prefix="Uploading Results to DB")
+    # for i, data in enumerate(sim_data_list):
+    #     data_manager.upload_simulation_result_row(conn=conn, sim_data=data)
+    #     pb.update(i)
+    # pb.finish()
+    
+    # target_var = "voltage_series"
+    # for config in configs_from_db:
+    #     simid = config["sim_id"]
+    #     d = data_manager.get_simulation_result_by_id(conn, simid, target_var)
+    #     logger.log(f"Simulation ID: {simid}, Data: {d[target_var]}")
+    #     break
+    
+    ### LETS GET SPARK GOING
+    spark = get_spark_session("HHSim Analysis")
+    logger.log("Spark session initialized")
+    df = sparql.FileManager.load_postgres_table(spark=spark)
+    print(type(df))
+    df_transformed = df.withColumn(
+        "voltage_series_scaled",
+        pyspark.sql.functions.transform(pyspark.sql.functions.col("voltage_series"), lambda x: x ** 4)
+    )
+
+    b_exists = sparql.FileManager.table_exists(spark=spark, table_name="simulation_results_transformed")
+    if b_exists:
+        logger.warn("Table 'simulation_results_transformed' already exists. Skipping creation.")
+    else:
+        logger.warn("Table 'simulation_results_transformed' does not exist. Creating it.")
+        sparql.FileManager.write_df_as_table(spark=spark, df=df_transformed, table_name="simulation_results_transformed")
+
+    logger.log(f"Loaded DataFrame with {df.count()} rows and {len(df.columns)} columns")
+    
     ### end body
     
     ## end 

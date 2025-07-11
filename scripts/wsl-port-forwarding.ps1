@@ -21,6 +21,8 @@ Invoke-Expression "netsh interface portproxy reset";
 $portl = $args
 $portl+= "5432"
 $portl+= "5433"
+$portl+= "7077"
+$portl+= "8080"
 
 for ($i = 0; $i -lt $portl.length; $i++) {
   $port = $portl[$i];

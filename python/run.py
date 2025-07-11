@@ -43,7 +43,6 @@ def run_simulation(params, sim_id):
 
     return time_series, voltage_series
 
-
 if __name__ == "__main__":
     import time as tm
     t0 = tm.time()
@@ -71,7 +70,7 @@ if __name__ == "__main__":
 
         sim_data = SimData(sim_id, params.to_dict(), time, voltage)
         source_file = config.get("_source_file", "unknown_config.json")
-        print(f"Params: {params.to_dict()}")
+        # print(f"Params: {params.to_dict()}")
 
         if source_file not in experiments:
             experiments[source_file] = ExperimentData(source_file)
@@ -80,7 +79,7 @@ if __name__ == "__main__":
 
     pb.finish()
     print(experiments)
-    exit(0)  # Exit early for testing purposes
+    # exit(0)  # Exit early for testing purposes
     
     for source_file, experiment in experiments.items():
         base_name = os.path.splitext(source_file)[0]

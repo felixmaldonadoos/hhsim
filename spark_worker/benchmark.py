@@ -24,4 +24,7 @@ def run_benchmark(name, master_url):
 run_benchmark("LOCAL[*]", "local[*]")
 
 # Run in cluster mode (submit to master and use workers)
-run_benchmark("SPARK CLUSTER", "spark://172.30.127.68:7077")
+import os 
+SPARK_MASTER_IP    = os.environ.get("SPARK_MASTER_IP")
+SPARK_MASTER_PORT  = os.environ.get("SPARK_MASTER_PORT")
+run_benchmark("SPARK CLUSTER", f"spark://{SPARK_MASTER_IP}:{SPARK_MASTER_PORT}")

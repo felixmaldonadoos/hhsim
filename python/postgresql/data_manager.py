@@ -97,7 +97,7 @@ def generate_results_table(conn):
         if table_exists:
             print("Table 'simulation_results' already exists.")
             return
-        print('Creating table "simulation_configs"...')
+        print('Creating table "simulation_results"...')
         cur.execute("""
             CREATE TABLE IF NOT EXISTS simulation_results (
                 id SERIAL PRIMARY KEY,
@@ -129,3 +129,17 @@ def upload_simulation_result_row(conn, sim_data:dict=None):
         new_id = cur.fetchone()[0]
         conn.commit()
         return f"Inserted simulation result for '{sim_data.sim_id}' with result ID: {new_id}"
+
+def get_simulation_result_by_id(conn, sim_id:str=None, val:str="*"):
+    if sim_id is None:
+        raise ValueError("sim_id must be provided to fetch simulation results.")
+    
+    with conn.cursor() as cur:
+        sql = f"SELECT {val} FROM simulation_results WHERE sim_id = %s"
+        cur.execute(sql, (sim_id,))
+        row = cur.fetchone()
+        if row:
+            columns = [desc[0] for desc in cur.description]
+            return dict(zip(columns, row))
+        else:
+            return None
