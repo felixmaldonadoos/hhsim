@@ -2,6 +2,7 @@
 
 import os
 import json
+import numpy as np 
 
 # my custom modules 
 from config.confighandler import ConfigHandler
@@ -23,14 +24,18 @@ from pyspark.sql import functions as F
 from pyspark.sql.types import ArrayType, StructType, StructField, IntegerType
 
 logger = Logger("HHSimTEST")
+import copy
 
-def run_simulation(params_dict:dict=None):
+def run_simulation(params_dict):
     # print(f"Running simulation: {sim_id}")
-    model = Model(params.to_dict())
+    # print(type(params_dict))
+    params_dict = copy.deepcopy(params_dict)
+    # print(params_dict)
+    model = Model(params_dict)
 
-    duration = params.duration
-    dt = params.dt
-    I_ext = params.I_ext
+    duration = params_dict["duration"]
+    dt = params_dict["dt"]
+    I_ext = params_dict["I_ext"]
     num_steps = int(duration / dt)
 
     time_series = []
@@ -43,6 +48,7 @@ def run_simulation(params_dict:dict=None):
         voltage_series.append(model.V)
         time += dt
 
+    print(np.mean(voltage_series))
     return time_series, voltage_series
 
 if __name__ == "__main__":
@@ -79,24 +85,25 @@ if __name__ == "__main__":
     conn, cursor = connmanager.connect()
 
 
-    ### start body
-    # cursor.execute("""DROP TABLE IF EXISTS simulation_configs""")
-    # cursor.execute("""DROP TABLE IF EXISTS simulation_results""")
-    # conn.commit() # commit the changes to the database
-    # data_manager.generate_params_table(conn) # Create the table if it doesn't exist
-    # data_manager.upload_configs(params_list, conn) # upload the parameters to the database - will overwrite existing entries
-    # configs_from_db = data_manager.get_configs_from_db(conn) # fetch all configs from the database
-    # data_manager.generate_results_table(conn) # Create the results table if it doesn't exist
+    ## start body
+    cursor.execute("""DROP TABLE IF EXISTS simulation_configs CASCADE""")
+    cursor.execute("""DROP TABLE IF EXISTS simulation_results CASCADE""")
+    conn.commit() # commit the changes to the database
+    data_manager.generate_params_table(conn) # Create the table if it doesn't exist
+    data_manager.upload_configs(params_list, conn) # upload the parameters to the database - will overwrite existing entries
+    configs_from_db = data_manager.get_configs_from_db(conn) # fetch all configs from the database
+    data_manager.generate_results_table(conn) # Create the results table if it doesn't exist
     
-    # # run simulations
-    # pb = ProgressBar(total=len(configs_from_db), prefix="Running Simulations")
-    # sim_data_list = []
-    # for i, config in enumerate(configs_from_db):
-    #     time, voltage = run_simulation(config)
-    #     sim_data = SimData(config["sim_id"], config, time, voltage)     
-    #     sim_data_list.append(sim_data)
-    #     pb.update(i)    
-    # pb.finish()
+    # run simulations
+    pb = ProgressBar(total=len(configs_from_db), prefix="Running Simulations")
+    sim_data_list = []
+    for i, config in enumerate(params_list):
+        # print(config)
+        time, voltage = run_simulation(config)
+        sim_data = SimData(config["sim_id"], config, time, voltage)     
+        sim_data_list.append(sim_data)
+        pb.update(i)    
+    pb.finish()
     
     # # upload simulation results to the database
     # pb = ProgressBar(total=len(sim_data_list), prefix="Uploading Results to DB")
@@ -112,6 +119,7 @@ if __name__ == "__main__":
     #     logger.log(f"Simulation ID: {simid}, Data: {d[target_var]}")
     #     break
     
+    .
     ### LETS GET SPARK GOING
     spark = get_spark_session("HHSim Analysis")
     logger.log("Spark session initialized")
